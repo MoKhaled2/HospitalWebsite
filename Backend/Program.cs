@@ -28,21 +28,43 @@ namespace Hospital
             builder.Services.AddAutoMapper(typeof(MappingProfiles));
 
 
-            builder.Services.AddAuthentication(options => {
+            builder.Services.AddAuthentication(options =>
+            {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>  {
-                options.TokenValidationParameters = new TokenValidationParameters {
-                    ValidateIssuer = true , 
-                    ValidateAudience = false , 
-                    ValidateIssuerSigningKey = true ,
-                    ValidateLifetime = true ,
+            }).AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = false,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
                     ValidIssuer = builder.Configuration["JWT:Issuer"],
                     ValidAudience = builder.Configuration["JWT:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]))
-            };
+                };
+                 // SignalR JWT Token Configuration
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            path.StartsWithSegments("/chatHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
-            // add CORs 
+            // SignalR JWT Token Configuration
+                
+
+            //add CORs
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowCORs",
@@ -100,6 +122,7 @@ namespace Hospital
             app.UseCors("AllowCORs");
 
             app.MapControllers();
+            app.MapHub<ChatHub>("/chatHub"); 
 
             app.Run();
         }
